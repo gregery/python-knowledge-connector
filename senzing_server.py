@@ -40,6 +40,8 @@ class SenzingServer:
             #if this entity doesn't exist, return None
             if ex.args[1].startswith('0037E'):
                 return None
+            else:
+                raise
         return json.loads(response_bytearray.decode())
 
     def getRecord(self, datasource_code, record_id):

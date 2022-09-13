@@ -489,7 +489,7 @@ class SenzingKnowledgeFunctions:
         for row in body.rows:
             object_ids.append(row.values[0].entity_value.properties["objectid"].primitive_value.sint64_value)
         # delete the entities
-        self.DeleteEntitiesByObjectID(entity_type, object_ids, True)
+        self.deleteEntitiesByObjectID(entity_type, object_ids, True)
 
     def deleteNamedTypeByGlobalID(self, entity_type, global_id, cascade_delete):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
@@ -582,8 +582,6 @@ class SenzingKnowledgeFunctions:
         # add relationships
         for entity_rel in entity_rels:
             self.addRelationshipBetweenResolvedEntities(*entity_rel)
-#                entity_rel[0], entity_rel[1], entity_rel[2], entity_rel[3]
-#            )
 
         # sync the records
         for record in records:

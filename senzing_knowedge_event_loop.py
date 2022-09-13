@@ -16,7 +16,7 @@ def callback_closure(config_filename):
         #process the affected entities
         for entity_id in affected_entities:
             print(F'processing entity: {entity_id}')
-            res_ent = senzing_handle.getEntityByEntityID(entity_id)
+            res_ent = senzing_handle.getEntityByEntityID(int(entity_id))
             if res_ent is not None:
                 #we have a real entity, sync it
                 szfunc.processEntity(*mapper.mapEntityAndRecords(res_ent))
