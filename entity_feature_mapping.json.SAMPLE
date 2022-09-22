@@ -1,0 +1,10 @@
+{
+	"KNOWLEDGE_ENTITY_TYPE": "senzing_resolved_entity",
+	"FEATURE_MAPPING": {
+		"NAME" : "name",
+		"ADDRESS" : "address"
+	},
+	"ROLE_MAPPING" : {
+		"CUSTOMERS" : "role_property"
+	}
+}
