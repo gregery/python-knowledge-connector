@@ -8,6 +8,6 @@ if __name__ == "__main__":
     print('deleting all resolved entities')
     szfunc.deleteAllEntitiesByType('senzing_resolved_entity', True)
 
-    print('deleting all records')
-    szfunc.deleteAllEntitiesByType('senzing_record', True)
+#    print('deleting all records')
+#    szfunc.deleteAllEntitiesByType('senzing_record', True)
   

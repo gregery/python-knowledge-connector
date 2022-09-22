@@ -242,9 +242,9 @@ class KnowledgeAPI:
         raw_response = self.kconn.session.get(url, params=params, verify=self.kconn.getVerifySSL())
         return self.parseGraphQueryResponse(raw_response)
 
-    def queryGraphForRecord(self, entity_id):
+    def queryGraphForRecord(self, data_source, record_id):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (record:senzing_record) WHERE record.entity_id = '{entity_id}' RETURN record"
+        cquery = F"MATCH (record:senzing_record) WHERE record.record_id = '{record_id}' and record.data_source = '{data_source}' RETURN record"
         params = {
             "f": "pbf",
             "token": self.kconn.getAuthToken(),
@@ -537,12 +537,12 @@ class SenzingKnowledgeFunctions:
         self.kapi.applyGraphEdits(edit_header, edit_frame)
         return True
 
-    def addRelationshipBetweenRecordAndResolvedEntity(self, record_entity_id, entity_id, match_key):
+    def addRelationshipBetweenRecordAndResolvedEntity(self, record_data_source, record_record_id, entity_id, match_key):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
         edit_header.useGlobalIDs = True
         edit_header.cascade_delete = True
 
-        (header, body) = self.kapi.queryGraphForRecord(record_entity_id)
+        (header, body) = self.kapi.queryGraphForRecord(record_data_source, record_record_id)
         from_uuid = body.rows[0] .values[0] .entity_value.properties["globalid"] .primitive_value.uuid_value
 
         (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id)
@@ -573,22 +573,21 @@ class SenzingKnowledgeFunctions:
     def addRecord(self, record_attributes):
         self.addEntity("senzing_record", record_attributes)
 
-    def processEntity(self, entity_attributes, records, record_rels, entity_rels):
+    def processEntity(self, mapped_data):
         # sync the resolved entity
         # first delete the entity if it currently exists
+        entity_attributes = mapped_data['ENTITY_ATTRIBUTES']
         self.deleteEntityByEntityID(entity_attributes["entity_id"])
         self.addResolvedEntity(entity_attributes)
 
         # add relationships
-        for entity_rel in entity_rels:
+        for entity_rel in mapped_data['ENTITY_RELS']:
             self.addRelationshipBetweenResolvedEntities(*entity_rel)
 
         # sync the records
-        for record in records:
-            self.addRecord(record)
+#        for record in records:
+#            self.addRecord(record)
 
         # add link from record to entity
-        for record_rel in record_rels:
-            self.addRelationshipBetweenRecordAndResolvedEntity(
-                record_rel[0], record_rel[1], record_rel[2]
-            )
+        for record_rel in mapped_data['RECORD_RELS']:
+            self.addRelationshipBetweenRecordAndResolvedEntity(*record_rel)
