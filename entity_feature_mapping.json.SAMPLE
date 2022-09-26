@@ -1,10 +1,16 @@
 {
-	"KNOWLEDGE_ENTITY_TYPE": "senzing_resolved_entity",
+	"KNOWLEDGE_ENTITY_TYPE": "person_resolved_entity",
 	"FEATURE_MAPPING": {
 		"NAME" : "name",
-		"ADDRESS" : "address"
+		"ADDRESS" : "address",
+                "DOB" : "dob",
+                "DOD" : "dod",
+                "GENDER" : "gender",
+                "PHONE" : "phone",
+                "SSN" : "ssn",
+                "EMAIL" : "email",
+                "EMPLOYER" : "employer"
 	},
 	"ROLE_MAPPING" : {
-		"CUSTOMERS" : "role_property"
 	}
 }
