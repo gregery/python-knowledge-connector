@@ -1,3 +1,4 @@
+#import pprint
 import json
 
 class EntityMapper:
@@ -11,7 +12,7 @@ class EntityMapper:
 
 
     def mapEntityAndRecords(self, entity_doc):
-        pprint.pprint(entity_doc)
+        #pprint.pprint(entity_doc)
         entity_attributes = {}
         #find the entity_id
         entity_attributes['entity_id'] = str(entity_doc['RESOLVED_ENTITY']['ENTITY_ID'])
