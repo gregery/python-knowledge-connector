@@ -19,7 +19,7 @@ def callback_closure(config_filename, mapping_filename):
             res_ent = senzing_handle.getEntityByEntityID(int(entity_id))
             if res_ent is not None:
                 #we have a real entity, sync it
-                szfunc.processEntity(mapper.mapEntityAndRecords(res_ent))
+                szfunc.processEntity(mapper.mapEntityAndRecords(res_ent), mapper.getResolvedEntityType())
             else:
                 #this entity no longer exists in senzing, so delete it from knowledge
                 szfunc.deleteEntityByEntityID(entity_id)

@@ -9,7 +9,11 @@ class EntityMapper:
             self.mapping = config_params
             self.feature_mapping = config_params['FEATURE_MAPPING']
             self.role_mapping = config_params['ROLE_MAPPING']
+            self.resolved_entity_type = config_params['KNOWLEDGE_ENTITY_TYPE']
 
+
+    def getResolvedEntityType(self):
+        return self.resolved_entity_type
 
     def mapEntityAndRecords(self, entity_doc):
         #pprint.pprint(entity_doc)

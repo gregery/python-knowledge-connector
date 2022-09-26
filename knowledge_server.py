@@ -209,9 +209,9 @@ class KnowledgeAPI:
         query_frame.ParseFromString( raw_response.content[read_pos : frame_length + read_pos])
         return (query_header, query_frame)
 
-    def queryGraphForEntityByEntityID(self, entity_id):
+    def queryGraphForEntityByEntityID(self, entity_id, entity_type):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (entity:senzing_resolved_entity) WHERE entity.entity_id = '{entity_id}' RETURN entity"
+        cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity"
         params = {
             "f": "pbf",
             "token": self.kconn.getAuthToken(),
@@ -222,9 +222,9 @@ class KnowledgeAPI:
         )
         return self.parseGraphQueryResponse(raw_response)
 
-    def queryGraphForRelationshipsByEntityID(self, entity_id):
+    def queryGraphForRelationshipsByEntityID(self, entity_id, entity_type):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (entity:senzing_resolved_entity)-[r1]-() WHERE entity.entity_id = '{entity_id}' RETURN r1"
+        cquery = F"MATCH (entity:{entity_type})-[r1]-() WHERE entity.entity_id = '{entity_id}' RETURN r1"
         params = {
             "f": "pbf",
             "token": self.kconn.getAuthToken(),
@@ -246,23 +246,19 @@ class KnowledgeAPI:
 
     def queryGraphForRecord(self, data_source, record_id):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (record:senzing_record) WHERE record.record_id = '{record_id}' and record.data_source = '{data_source}' RETURN record"
+        cquery = F"MATCH (record) WHERE record.record_id = '{record_id}' and record.data_source = '{data_source}' RETURN record"
         params = {
             "f": "pbf",
             "token": self.kconn.getAuthToken(),
             "openCypherQuery": cquery,
         }
-        raw_response = self.kconn.session.get(
-            url, params=params, verify=self.kconn.getVerifySSL()
-        )
+        raw_response = self.kconn.session.get(url, params=params, verify=self.kconn.getVerifySSL())
         return self.parseGraphQueryResponse(raw_response)
 
 class SenzingKnowledgeFunctions:
     def __init__(self, knowledge_api):
         if type(knowledge_api) is not KnowledgeAPI:
-            raise Exception(
-                "SenzingKnowledgeFunctions must be constructed with a valid KnowledgeAPI object"
-            )
+            raise Exception("SenzingKnowledgeFunctions must be constructed with a valid KnowledgeAPI object")
         self.kapi = knowledge_api
 
     def buildDataModel(self):
@@ -420,9 +416,7 @@ class SenzingKnowledgeFunctions:
         newType.strict_dest = True
         newType.relationship.name = "related_to"
         newType.relationship.alias = "related_to"
-        newType.relationship.role = (
-            esriPBuffer.graph.DataModelTypes_pb2.esriGraphNamedObjectRegular
-        )
+        newType.relationship.role = esriPBuffer.graph.DataModelTypes_pb2.esriGraphNamedObjectRegular
 
         szAttr = newType.relationship.properties.add()
         szAttr.name = "match_level_code"
@@ -440,9 +434,9 @@ class SenzingKnowledgeFunctions:
 
         self.kapi.AddNamedType(add_request)
 
-    def deleteEntityByEntityID(self, entity_id):
+    def deleteEntityByEntityID(self, entity_id, entity_type):
         # get the object_oid for this entity_id
-        (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id)
+        (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id, entity_type)
         # if response is null, this entity doesn't exist, so we are done
         if body is None:
             return False
@@ -455,7 +449,7 @@ class SenzingKnowledgeFunctions:
             .primitive_value.sint64_value
         )
         # now delete the entity
-        self.deleteEntitiesByObjectID("senzing_resolved_entity", oid, True)
+        self.deleteEntitiesByObjectID(entity_type, oid, True)
         return True
 
     def deleteNamedTypeByObjectID( self, named_type, object_id, cascade_delete, isEntity):
@@ -503,22 +497,18 @@ class SenzingKnowledgeFunctions:
         edit_frame.deletes.deleted_entity_ids[entity_type].globalid_array = global_id
         return self.kapi.ApplyGraphEdits(edit_header, edit_frame)
 
-    def addRelationshipBetweenResolvedEntities(self, from_entity_id, to_entity_id, match_level_code, match_key):
+    def addRelationshipBetweenResolvedEntities(self, from_entity_id, to_entity_id, match_level_code, match_key, entity_type):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
         edit_header.useGlobalIDs = True
         edit_header.cascade_delete = True
 
-        (header, body) = self.kapi.queryGraphForEntityByEntityID(from_entity_id)
+        (header, body) = self.kapi.queryGraphForEntityByEntityID(from_entity_id, entity_type)
         # if lookup failed, entity might not be loaded yet -- will get picked up on the other side
         if body is None:
             return False
-        from_uuid = (
-            body.rows[0]
-            .values[0]
-            .entity_value.properties["globalid"]
-            .primitive_value.uuid_value
-        )
-        (header, body) = self.kapi.queryGraphForEntityByEntityID(to_entity_id)
+        from_uuid = body.rows[0].values[0].entity_value.properties["globalid"].primitive_value.uuid_value
+
+        (header, body) = self.kapi.queryGraphForEntityByEntityID(to_entity_id, entity_type)
         # if lookup failed, entity might not be loaded yet -- will get picked up on the other side
         if body is None:
             return False
@@ -542,7 +532,7 @@ class SenzingKnowledgeFunctions:
         self.kapi.applyGraphEdits(edit_header, edit_frame)
         return True
 
-    def addRelationshipBetweenRecordAndResolvedEntity(self, record_data_source, record_record_id, entity_id, match_key):
+    def addRelationshipBetweenRecordAndResolvedEntity(self, record_data_source, record_record_id, entity_id, match_key, resolved_entity_type):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
         edit_header.useGlobalIDs = True
         edit_header.cascade_delete = True
@@ -551,9 +541,9 @@ class SenzingKnowledgeFunctions:
         if body is None:
             print(f'WARNING: record has not been loaded DATA_SOURCE:{record_data_source} RECORD_ID:{record_record_id}')
             return None
-        from_uuid = body.rows[0] .values[0] .entity_value.properties["globalid"] .primitive_value.uuid_value
+        from_uuid = body.rows[0].values[0] .entity_value.properties["globalid"] .primitive_value.uuid_value
 
-        (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id)
+        (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id, resolved_entity_type)
         to_uuid = body.rows[0] .values[0] .entity_value.properties["globalid"] .primitive_value.uuid_value
 
         edit_frame = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsFrame()
@@ -575,23 +565,23 @@ class SenzingKnowledgeFunctions:
             add_entity.properties[key].primitive_value.string_value = value
         self.kapi.applyGraphEdits(edit_header, edit_frame)
 
-    def addResolvedEntity(self, entity_attributes):
-        self.addEntity("senzing_resolved_entity", entity_attributes)
+    def addResolvedEntity(self, entity_attributes, entity_type):
+        self.addEntity(entity_type, entity_attributes)
 
     def addRecord(self, record_attributes):
         self.addEntity("senzing_record", record_attributes)
 
-    def processEntity(self, mapped_data):
+    def processEntity(self, mapped_data, entity_type):
         #pprint.pprint(mapped_data)
         # sync the resolved entity
         # first delete the entity if it currently exists
         entity_attributes = mapped_data['ENTITY_ATTRIBUTES']
-        self.deleteEntityByEntityID(entity_attributes["entity_id"])
-        self.addResolvedEntity(entity_attributes)
+        self.deleteEntityByEntityID(entity_attributes["entity_id"], entity_type)
+        self.addResolvedEntity(entity_attributes, entity_type)
 
         # add relationships
         for entity_rel in mapped_data['ENTITY_RELS']:
-            self.addRelationshipBetweenResolvedEntities(*entity_rel)
+            self.addRelationshipBetweenResolvedEntities(*entity_rel, entity_type)
 
         # sync the records
 #        for record in records:
@@ -599,4 +589,4 @@ class SenzingKnowledgeFunctions:
 
         # add link from record to entity
         for record_rel in mapped_data['RECORD_RELS']:
-            self.addRelationshipBetweenRecordAndResolvedEntity(*record_rel)
+            self.addRelationshipBetweenRecordAndResolvedEntity(*record_rel, entity_type)
