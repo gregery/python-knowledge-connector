@@ -1,3 +1,5 @@
+import pprint
+
 import json
 import requests
 import gzip
@@ -181,7 +183,7 @@ class KnowledgeAPI:
         # print(raw_response.content)
         edit_response.ParseFromString(raw_response.content)
         # print(type(edit_response))
-        # print(edit_response)
+        #print(edit_response)
         # print(edit_response.content)
 
         return edit_response
@@ -507,6 +509,9 @@ class SenzingKnowledgeFunctions:
         edit_header.cascade_delete = True
 
         (header, body) = self.kapi.queryGraphForEntityByEntityID(from_entity_id)
+        # if lookup failed, entity might not be loaded yet -- will get picked up on the other side
+        if body is None:
+            return False
         from_uuid = (
             body.rows[0]
             .values[0]
@@ -543,6 +548,9 @@ class SenzingKnowledgeFunctions:
         edit_header.cascade_delete = True
 
         (header, body) = self.kapi.queryGraphForRecord(record_data_source, record_record_id)
+        if body is None:
+            print(f'WARNING: record has not been loaded DATA_SOURCE:{record_data_source} RECORD_ID:{record_record_id}')
+            return None
         from_uuid = body.rows[0] .values[0] .entity_value.properties["globalid"] .primitive_value.uuid_value
 
         (header, body) = self.kapi.queryGraphForEntityByEntityID(entity_id)
@@ -574,6 +582,7 @@ class SenzingKnowledgeFunctions:
         self.addEntity("senzing_record", record_attributes)
 
     def processEntity(self, mapped_data):
+        #pprint.pprint(mapped_data)
         # sync the resolved entity
         # first delete the entity if it currently exists
         entity_attributes = mapped_data['ENTITY_ATTRIBUTES']
