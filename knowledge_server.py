@@ -314,7 +314,7 @@ class SenzingKnowledgeFunctions:
             esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
         )
         newType = add_request.relationship_types.add()
-        newType.origin_entity_types.append("record")
+#        newType.origin_entity_types.append("record")
         newType.dest_entity_types.append(entity_type)
 
         newType.strict_origin = False
