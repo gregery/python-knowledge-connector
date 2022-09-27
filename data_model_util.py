@@ -28,5 +28,5 @@ if __name__ == "__main__":
         data_model.delete_data_model(args.model, args.config)
         data_model.create_data_model(args.model, args.config, args.mapping)
     elif args.action == 'print':
-        data_model = kapi.GetDataModel()
+        data_model = kapi.getDataModel()
         print(data_model)
