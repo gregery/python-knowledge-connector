@@ -1,6 +1,7 @@
 #project specific
 knowledge_config.json
 entity_feature_mapping.json
+entity_data_model.csv
 
 
 # Byte-compiled / optimized / DLL files
