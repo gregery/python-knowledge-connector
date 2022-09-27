@@ -6,7 +6,7 @@ if __name__ == "__main__":
     szfunc = knowledge_server.SenzingKnowledgeFunctions(kapi)
 
     print('deleting all resolved entities')
-    szfunc.deleteAllEntitiesByType('senzing_resolved_entity', True)
+    szfunc.deleteAllEntitiesByType('person_resolved_entity', True)
 
 #    print('deleting all records')
 #    szfunc.deleteAllEntitiesByType('senzing_record', True)
