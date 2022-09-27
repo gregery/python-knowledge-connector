@@ -123,7 +123,7 @@ class KnowledgeAPI:
     # Data Model functions
     ###
     def addNamedType(self, new_type):
-        if (isinstance(new_type, esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest)):
+        if not isinstance(new_type, esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest):
             raise Exception( "new entity type must be a protobuf of type esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest")
 
         url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/add"
@@ -142,20 +142,16 @@ class KnowledgeAPI:
     def deleteNamedType(self, type_name):
         url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/{type_name}/delete"
         params = {"f": "pbf", "token": self.kconn.getAuthToken()}
-        r = self.kconn.session.post(
-            url,
-            params=params,
-            headers={"Content-Type": "application/octet-stream"},
-            verify=self.kconn.getVerifySSL(),
-        )
+        r = self.kconn.session.post( url, params=params, headers={"Content-Type": "application/octet-stream"}, verify=self.kconn.getVerifySSL())
         delete_response = (esriPBuffer.graph.DeleteNamedTypeResponse_pb2.GraphNamedObjectTypeDeleteResponse())
         delete_response.ParseFromString(r.content)
+        return delete_response
 
     def deleteEntityType(self, entity_type_name):
-        self.deleteNamedType(entity_type_name)
+        return self.deleteNamedType(entity_type_name)
 
     def deleteRelType(self, rel_type_name):
-        self.deleteNamedType(rel_type_name)
+        return self.deleteNamedType(rel_type_name)
 
     ####
     ## Graph functions
@@ -261,27 +257,6 @@ class SenzingKnowledgeFunctions:
             raise Exception("SenzingKnowledgeFunctions must be constructed with a valid KnowledgeAPI object")
         self.kapi = knowledge_api
 
-    def buildDataModel(self):
-        # add entity types
-        self.addRecordType()
-        self.addResolvedEntityType()
-
-        # add relationship types
-        self.addRecordToEntityRelType()
-        self.addEntityToEntityRelType()
-
-    def deleteDataModel(self):
-        # delete entity types
-        self.kapi.deleteEntityType("senzing_record")
-        self.kapi.deleteEntityType("senzing_resolved_entity")
-
-        # delete relationship types
-        self.kapi.deleteRelType("resolved_to")
-        self.kapi.deleteRelType("related_to")
-
-    def rebuildDataModel(self):
-        self.deleteDataModel()
-        self.buildDataModel()
 
     def addRecordType(self):
         add_request = (
@@ -332,85 +307,36 @@ class SenzingKnowledgeFunctions:
         field_index.isUnique = True
         field_index.description = "entity_id index"
 
-        self.kapi.AddNamedType(add_request)
+        self.kapi.addNamedType(add_request)
 
-    def addResolvedEntityType(self):
-        add_request = (
-            esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
-        )
-        newType = add_request.entity_types.add()
-        newType.entity.name = "senzing_resolved_entity"
-        newType.entity.alias = "senzing_resolved_entity"
-
-        szAttr = newType.entity.properties.add()
-        szAttr.name = "entity_id"
-        szAttr.alias = "entity_id"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
-        szAttr.not_nullable = True
-        szAttr.not_editable = True
-        szAttr.not_visible = False
-        szAttr.required = True
-        szAttr.isSystemMaintained = False
-        # szAttr.domain =
-        szAttr.searchable = True
-
-        szAttr = newType.entity.properties.add()
-        szAttr.name = "name"
-        szAttr.alias = "name"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
-
-        szAttr = newType.entity.properties.add()
-        szAttr.name = "address"
-        szAttr.alias = "address"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
-
-        field_index = newType.entity.field_indexes.add()
-        field_index.name = "entity_id_idx"
-        field_index.fields = "entity_id"
-        field_index.isAscending = True
-        field_index.isUnique = True
-        field_index.description = "entity_id index"
-
-        self.kapi.AddNamedType(add_request)
-
-    def addRecordToEntityRelType(self):
+    def addRecordToEntityRelType(self, entity_type):
         add_request = (
             esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
         )
         newType = add_request.relationship_types.add()
-        newType.origin_entity_types.append("senzing_record")
-        newType.dest_entity_types.append("senzing_resolved_entity")
+        newType.origin_entity_types.append("record")
+        newType.dest_entity_types.append(entity_type)
 
-        newType.strict_origin = True
+        newType.strict_origin = False
         newType.strict_dest = True
         newType.relationship.name = "resolved_to"
         newType.relationship.alias = "resolved_to"
-        newType.relationship.role = (
-            esriPBuffer.graph.DataModelTypes_pb2.esriGraphNamedObjectRegular
-        )
+        newType.relationship.role = esriPBuffer.graph.DataModelTypes_pb2.esriGraphNamedObjectRegular
 
         szAttr = newType.relationship.properties.add()
         szAttr.name = "match_key"
         szAttr.alias = "match_key"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
+        szAttr.fieldType = esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
 
-        self.kapi.AddNamedType(add_request)
+        return self.kapi.addNamedType(add_request)
 
-    def addEntityToEntityRelType(self):
+    def addEntityToEntityRelType(self, entity_type):
         add_request = (
             esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
         )
         newType = add_request.relationship_types.add()
-        newType.origin_entity_types.append("senzing_resolved_entity")
-        newType.dest_entity_types.append("senzing_resolved_entity")
+        newType.origin_entity_types.append(entity_type)
+        newType.dest_entity_types.append(entity_type)
 
         newType.strict_origin = True
         newType.strict_dest = True
@@ -421,18 +347,14 @@ class SenzingKnowledgeFunctions:
         szAttr = newType.relationship.properties.add()
         szAttr.name = "match_level_code"
         szAttr.alias = "match_level_code"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
+        szAttr.fieldType = esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
 
         szAttr = newType.relationship.properties.add()
         szAttr.name = "match_key"
         szAttr.alias = "match_key"
-        szAttr.fieldType = (
-            esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
-        )
+        szAttr.fieldType = esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2.esriFieldTypeString
 
-        self.kapi.AddNamedType(add_request)
+        return self.kapi.addNamedType(add_request)
 
     def deleteEntityByEntityID(self, entity_id, entity_type):
         # get the object_oid for this entity_id

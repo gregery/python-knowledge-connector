@@ -1,5 +1,6 @@
 import argparse
 import knowledge_server
+import data_model
 
 if __name__ == "__main__":
     action_choices = ['create', 'delete', 'recreate', 'print']
@@ -10,18 +11,22 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='ArcGIS Knowledge Data Model Utility for Senzing')
     parser.add_argument('action', type=str, choices=action_choices, help=action_choices_help)
+    parser.add_argument('-c', '--config', type=str, default='knowledge_config.json')
+    parser.add_argument('-m', '--model', type=str, default='entity_data_model.csv')
+    parser.add_argument('-a', '--mapping', type=str, default='entity_feature_mapping.json')
     args = parser.parse_args()
 
-    conn = knowledge_server.KnowledgeConnection('knowledge_config.json')
+    conn = knowledge_server.KnowledgeConnection(args.config)
     kapi = knowledge_server.KnowledgeAPI(conn)
     szfunc = knowledge_server.SenzingKnowledgeFunctions(kapi)
 
     if args.action == 'create':
-        szfunc.BuildDataModel()
+        data_model.create_data_model(args.model, args.config, args.mapping)
     elif args.action == 'delete':
-        szfunc.DeleteDataModel()
+        data_model.delete_data_model(args.model, args.config)
     elif args.action == 'recreate':
-        szfunc.RebuildDataModel()
+        data_model.delete_data_model(args.model, args.config)
+        data_model.create_data_model(args.model, args.config, args.mapping)
     elif args.action == 'print':
         data_model = kapi.GetDataModel()
         print(data_model)

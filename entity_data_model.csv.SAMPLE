@@ -1,0 +1,11 @@
+ENTITY_TYPE_NAME,PROPERTY_NAME,PROPERTY_ALIAS,FIELD_TYPE,NOT_NULLABLE,NOT_EDITABLE,NOT_VISIBLE,REQUIRED,IS_SYSTEM_MAINTAINED,SEARCHABLE
+person_resolved_entity,entity_id,entity_id,string,true,true,false,true,false,true
+person_resolved_entity,name,name,string,false,false,false,false,false,false
+person_resolved_entity,address,address,string,false,false,false,false,false,false
+person_resolved_entity,dob,dob,string,false,false,false,false,false,false
+person_resolved_entity,dod,dod,string,false,false,false,false,false,false
+person_resolved_entity,gender,gender,string,false,false,false,false,false,false
+person_resolved_entity,phone,phone,string,false,false,false,false,false,false
+person_resolved_entity,ssn,ssn,string,false,false,false,false,false,false
+person_resolved_entity,email,email,string,false,false,false,false,false,false
+person_resolved_entity,employer,employer,string,false,false,false,false,false,false
