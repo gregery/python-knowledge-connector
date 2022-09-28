@@ -1,6 +1,5 @@
 import argparse
-import knowledge_server
-import data_model
+import knowledge_finder
 
 if __name__ == "__main__":
     action_choices = ['create', 'delete', 'recreate', 'print']
@@ -15,6 +14,12 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model', type=str, default='entity_data_model.csv')
     parser.add_argument('-a', '--mapping', type=str, default='entity_feature_mapping.json')
     args = parser.parse_args()
+
+    #add knowledge protobuf python lib to the pythonpath
+    knowledge_finder.findKnowledge(args.config)
+
+    import knowledge_server
+    import data_model
 
     conn = knowledge_server.KnowledgeConnection(args.config)
     kapi = knowledge_server.KnowledgeAPI(conn)
