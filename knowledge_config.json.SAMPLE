@@ -1,4 +1,5 @@
 {
+    "knowledge_protobuf_python_dir" : "/home/user/knowledge-pbf/python",
     "arcgis_config": {
         "host": "",
         "username": "",
