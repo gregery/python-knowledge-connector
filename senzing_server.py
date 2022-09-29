@@ -1,22 +1,20 @@
 import json
 
+import senzing_module_config
+#make sure we can get the ini before we import the rest of the senzing python lib
+senzing_module_config.getJsonConfig()
+
 from senzing import G2Engine, G2Exception, G2EngineFlags, G2Diagnostic
 
 class SenzingServer:
     def __init__(self, config_filename):
         #parse the config file
-        required_keys = [('PIPELINE','CONFIGPATH'),
-                         ('PIPELINE',"SUPPORTPATH"),
-                         ('PIPELINE','RESOURCEPATH'),
-                         ('SQL','CONNECTION')]
 
         with open(config_filename, mode='rt', encoding='utf-8') as config_file:
-            self.config_params = json.load(config_file)['senzing_config']
-            for required_key in required_keys:
-                if required_key[0] not in self.config_params:
-                    raise Exception('config is missing required key: ' + required_key)
-                if required_key[1] not in self.config_params[required_key[0]]:
-                    raise Exception('config is missing required key: ' + required_key)
+            config = json.load(config_file)
+            self.config_params = {}
+            if 'senzing_config' in config:
+                self.config_params = config['senzing_config']
 
         #initialize the engine
         self.g2_engine = G2Engine()
@@ -25,7 +23,8 @@ class SenzingServer:
         else:
             verbose_logging = False
         return_code = self.g2_engine.init('senzing-knowledge-connector-engine',
-                                          json.dumps(self.config_params),
+                                          senzing_module_config.getJsonConfig(),
+#                                          json.dumps(self.config_params),
                                           verbose_logging)
         self.g2_diagnostic = G2Diagnostic()
         self.g2_diagnostic.init('senzing-knowledge-connector-diagnostic',
