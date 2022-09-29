@@ -12,9 +12,8 @@ This utility will automatically use the senzing configuration associated with yo
 
 If you don't already have Senzing installed, instructions can be found here [Senzing quickstart guide](https://senzing.zendesk.com/hc/en-us/articles/115002408867-Quickstart-Guide)
 
-pika -- RabbitMQ Client must be installed
+pika -- RabbitMQ Client must be installed.  It can be installed with Python pip with the following command.
 
-### Linux
 ```
 sudo pip install pika
 ```
