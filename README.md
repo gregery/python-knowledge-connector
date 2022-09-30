@@ -20,7 +20,7 @@ sudo pip install pika
 
 ## process_entities.py
 
-This utility reads work items from RabbitMQ and syncs entities and relationships in Knowledge Graph based on the queued work items.:w
+This utility reads work items from RabbitMQ and syncs entities and relationships in Knowledge Graph based on the queued work items.
 
 ## data_model_util.py
 
