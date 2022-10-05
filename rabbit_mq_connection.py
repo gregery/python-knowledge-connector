@@ -12,6 +12,8 @@ class RabbitMQConnection:
             for required_key in required_keys:
                 if required_key not in self.config_params:
                     raise Exception('config is missing required key: ' + required_key)
+        if 'prefetch' not in self.config_params:
+            self.config_params['prefetch'] = 10
 
     def __del__(self):
         self.shutdown()
@@ -24,12 +26,13 @@ class RabbitMQConnection:
                                                          port=self.config_params['port'],
                                                          credentials=credentials))
         self.channel = self.connection.channel()
+        self.channel.basic_qos(prefetch_count=int(self.config_params['prefetch']))
         self.channel.queue_declare(self.config_params['queue_name'])
 
     def run(self, callback):
         self.channel.basic_consume(queue=self.config_params['queue_name'], 
                                    auto_ack=False, 
-                                   on_message_callback=callback)    
+                                   on_message_callback=callback)
         try:
             self.channel.start_consuming()
         except KeyboardInterrupt:
