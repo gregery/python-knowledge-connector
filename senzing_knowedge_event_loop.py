@@ -4,6 +4,7 @@ from rabbit_mq_connection import RabbitMQConnection
 import knowledge_server
 import senzing_server
 import entity_mapper
+import work_item_processor
 
 def callback_closure(config_filename, mapping_filename):
     def callback(ch, method, properties, body):
@@ -19,7 +20,7 @@ def callback_closure(config_filename, mapping_filename):
             res_ent = senzing_handle.getEntityByEntityID(int(entity_id))
             if res_ent is not None:
                 #we have a real entity, sync it
-                szfunc.processEntity(mapper.mapEntityAndRecords(res_ent), mapper.getResolvedEntityType())
+                wiproc.processEntity(mapper.mapEntityAndRecords(res_ent), mapper.getResolvedEntityType())
             else:
                 #this entity no longer exists in senzing, so delete it from knowledge
                 szfunc.deleteEntityByEntityID(entity_id)
@@ -31,6 +32,7 @@ def callback_closure(config_filename, mapping_filename):
     conn = knowledge_server.KnowledgeConnection(config_filename)
     kapi = knowledge_server.KnowledgeAPI(conn)
     szfunc = knowledge_server.SenzingKnowledgeFunctions(kapi)
+    wiproc = work_item_processor.WorkItemProcessor(kapi, szfunc)
 
     #setup the G2 connection
     senzing_handle = senzing_server.SenzingServer(config_filename)
