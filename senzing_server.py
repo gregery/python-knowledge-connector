@@ -43,6 +43,18 @@ class SenzingServer:
                 raise
         return json.loads(response_bytearray.decode())
 
+    def getEntityByRecordID(self, data_source, record_id):
+        response_bytearray = bytearray()
+        try:
+            return_code = self.g2_engine.getEntityByRecordID(data_source, record_id, response_bytearray)
+        except G2Exception as ex:
+            #if this entity doesn't exist, return None
+            if ex.args[1].startswith('0037E'):
+                return None
+            else:
+                raise
+        return json.loads(response_bytearray.decode())
+
     def getRecord(self, datasource_code, record_id):
         response_bytearray = bytearray()
         return_code = self.g2_engine.getRecord(datasource_code, record_id, response_bytearray)

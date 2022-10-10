@@ -16,6 +16,7 @@ if __name__ == "__main__":
     szfunc = knowledge_server.SenzingKnowledgeFunctions(kapi)
 
     print(F'deleting all entities of type {args.type}')
-    szfunc.deleteAllEntitiesByType(args.type, True)
+    deleted = szfunc.deleteAllEntitiesByType(args.type, True)
+    print(F'Deleted {deleted}')
 
   

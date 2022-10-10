@@ -384,10 +384,10 @@ class SenzingKnowledgeFunctions:
         # if this object_id is just a single object_id, turn it into a list as required by the api
         if type(object_id) not in (list, tuple):
             object_id = [ object_id, ] 
-            if isEntity is True:
-                edit_frame.deletes.deleted_entity_ids[named_type].oid_array.value.extend(object_id)
-            else:
-                edit_frame.deletes.deleted_relationship_ids[named_type].oid_array.value.extend(object_id)
+        if isEntity is True:
+            edit_frame.deletes.deleted_entity_ids[named_type].oid_array.value.extend(object_id)
+        else:
+            edit_frame.deletes.deleted_relationship_ids[named_type].oid_array.value.extend(object_id)
 
         return self.kapi.applyGraphEdits(edit_header, edit_frame)
 
@@ -401,13 +401,14 @@ class SenzingKnowledgeFunctions:
         (header, body) = self.kapi.queryGraphForEntitiesByType(entity_type)
         # if we get no results, nothing to delete so quit
         if body is None:
-            return
+            return 0
         # accumulate the object ids of the entities we are deleting
         object_ids = []
         for row in body.rows:
             object_ids.append(row.values[0].entity_value.properties["objectid"].primitive_value.sint64_value)
         # delete the entities
         self.deleteEntitiesByObjectID(entity_type, object_ids, True)
+        return len(object_ids)
 
     def deleteNamedTypeByGlobalID(self, entity_type, global_id, cascade_delete):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
