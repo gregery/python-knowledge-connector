@@ -2,6 +2,7 @@
 knowledge_config.json
 entity_feature_mapping.json
 entity_data_model.csv
+entity_data_model_indexes.csv
 
 
 # Byte-compiled / optimized / DLL files

@@ -8,11 +8,17 @@ import esriPBuffer.graph.QueryDataModelResponse_pb2
 import esriPBuffer.graph.AddNamedTypesRequest_pb2
 import esriPBuffer.graph.AddNamedTypesResponse_pb2
 import esriPBuffer.graph.DeleteNamedTypeResponse_pb2
+import esriPBuffer.graph.AddIndexesRequest_pb2
+import esriPBuffer.graph.AddIndexesResponse_pb2
+import esriPBuffer.graph.DeleteIndexesRequest_pb2
+import esriPBuffer.graph.DeleteIndexesResponse_pb2
 import esriPBuffer.graph.DataModelTypes_pb2
 import esriPBuffer.graph.ApplyEditsRequest_pb2
 import esriPBuffer.graph.ApplyEditsResponse_pb2
 import esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2
 import esriPBuffer.graph.QueryResponse_pb2
+
+import data_model
 
 from google.protobuf.internal.encoder import _VarintBytes
 from google.protobuf.internal.decoder import _DecodeVarint
@@ -143,7 +149,7 @@ class KnowledgeAPI:
         url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/{type_name}/delete"
         params = {"f": "pbf", "token": self.kconn.getAuthToken()}
         r = self.kconn.session.post( url, params=params, headers={"Content-Type": "application/octet-stream"}, verify=self.kconn.getVerifySSL())
-        delete_response = (esriPBuffer.graph.DeleteNamedTypeResponse_pb2.GraphNamedObjectTypeDeleteResponse())
+        delete_response = esriPBuffer.graph.DeleteNamedTypeResponse_pb2.GraphNamedObjectTypeDeleteResponse()
         delete_response.ParseFromString(r.content)
         return delete_response
 
@@ -152,6 +158,54 @@ class KnowledgeAPI:
 
     def deleteRelType(self, rel_type_name):
         return self.deleteNamedType(rel_type_name)
+
+    def addIndex(self, data_model_index):
+        #validate the index type
+        if not isinstance(data_model_index, data_model.DataModelIndex):
+            raise Exception('data  model index parameter must be of type DataModelIndex')
+        #create the index add request
+        type_name = data_model_index.type_name
+        add_request = esriPBuffer.graph.AddIndexesRequest_pb2.GraphPropertyIndexAddsRequest()
+        for index_field in data_model_index.field_name:
+            index_item = add_request.field_indexes.add()
+            index_item.name = data_model_index.index_name
+            index_item.fields = index_field
+            index_item.isAscending = data_model_index.is_ascending
+            index_item.isUnique = data_model_index.is_unique
+            index_item.description = data_model_index.description
+
+        #make the REST API call
+        url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/{type_name}/indexes/add"
+        params = {"f": "pbf", "token": self.kconn.getAuthToken()}
+
+        raw_response = self.kconn.session.post(
+            url,
+            params=params,
+            headers={"Content-Type": "application/octet-stream"},
+            data=add_request.SerializeToString(),
+            verify=self.kconn.getVerifySSL()
+        )
+
+        add_response = esriPBuffer.graph.AddIndexesResponse_pb2.GraphPropertyIndexAddsResponse()
+        add_response.ParseFromString(raw_response.content)
+        return add_response
+
+    def deleteIndex(self, type_name, index_name):
+        url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/{type_name}/indexes/delete"
+        params = {"f": "pbf", "token": self.kconn.getAuthToken()}
+        delete_request = esriPBuffer.graph.DeleteIndexesRequest_pb2.GraphPropertyIndexDeleteRequest()
+        delete_request.name.append(index_name)
+        raw_response = self.kconn.session.post(
+            url,
+            params=params,
+            headers={"Content-Type": "application/octet-stream"},
+            data=delete_request.SerializeToString(),
+            verify=self.kconn.getVerifySSL()
+        )
+        delete_response = esriPBuffer.graph.DeleteIndexesResponse_pb2.GraphIndexDeleteResponse()
+        delete_response.ParseFromString(raw_response.content)
+        return delete_response
+
 
     ####
     ## Graph functions

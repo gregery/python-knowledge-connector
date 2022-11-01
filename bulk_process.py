@@ -28,7 +28,7 @@ def processCSV(config, mapping_filename, input_file, batch_size):
         for row in reader:
             if 'ENTITY_ID' in row:
                 res_ent = senzing_handle.getEntityByEntityID(int(row['ENTITY_ID']))
-            elif 'DATA_SOURCE' in row and 'ENTITY_ID' in row:
+            elif 'DATA_SOURCE' in row and 'RECORD_ID' in row:
                 res_ent = senzing_handle.getEntityByRecordID(row['DATA_SOURCE'], row['RECORD_ID'])
             else:
                 raise Exception(F'unrecognized csv data {row}\nMust have ENTITY_ID or (DATA_SOURCE,RECORD_ID)')

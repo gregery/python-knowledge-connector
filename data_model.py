@@ -62,7 +62,6 @@ class DataModelAttribute():
         attr.isSystemMaintained = self.is_system_maintained
         attr.searchable = self.searchable
 
-
 class DataModelEntityType():
     def __init__(self, entity_type_name):
         self.entity_type_name = entity_type_name
@@ -107,13 +106,52 @@ class DataModeEntityCollection():
     def getEntityTypes(self):
         return self.entity_collection.keys()
 
+class DataModelIndex():
+    def __init__(self, row_dict):
+        self.type_name = row_dict['ENTITY_TYPE_NAME']
+        self.index_name = row_dict['INDEX_NAME']
+        self.field_name = [row_dict['FIELD_NAME'],]
+        self.is_ascending = self.validateBoolean(row_dict['IS_ASCENDING'])
+        self.is_unique = self.validateBoolean(row_dict['IS_UNIQUE'])
+        self.description = row_dict['DESCRIPTION']
+
+    def validateBoolean(self, item):
+        if item.upper()[0] not in ['T','F']:
+            raise Exception(F'unknown boolean type {item}')
+        if item.upper()[0] == 'T':
+            return True
+        return False
+    
+    def addField(self, row_dict):
+        self.field_name.append(row_dict['FIELD_NAME'])
+
+    def __repr__(self):
+        return F'{self.type_name=} {self.index_name=} {self.field_name=} {self.is_ascending=} {self.is_unique=} {self.description=}' 
+
+class DataModelIndexCollection():
+    def __init__(self, index_file):
+        self.index_collection = {}
+        with open(index_file, mode='rt', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                type_name = row['ENTITY_TYPE_NAME']
+                index_name = row['INDEX_NAME']
+                key = (type_name,index_name)
+                if key not in self.index_collection:
+                    self.index_collection[key] = DataModelIndex(row)
+                else:
+                    self.index_collection[key].addField(row)
+
+
 
 
 def create_data_model(data_model_file, knowledge_config_file, mapping_config_file):
+    #parse data model and transpose into protobuf
     data_model = DataModeEntityCollection(data_model_file)
     add_request = esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
     data_model.transposeModelToProtobuf(add_request)
 
+    #setup REST API 
     conn = knowledge_server.KnowledgeConnection(knowledge_config_file)
     kapi = knowledge_server.KnowledgeAPI(conn)
     szfunc = knowledge_server.SenzingKnowledgeFunctions(kapi)
@@ -148,3 +186,4 @@ def delete_data_model(data_model_file, knowledge_config_file):
     print(response)
     response = kapi.deleteRelType("related_to")
     print(response)
+
