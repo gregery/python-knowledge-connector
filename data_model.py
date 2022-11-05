@@ -2,6 +2,7 @@ import csv
 import esriPBuffer.graph.DataModelTypes_pb2
 import esriPBuffer.graph.AddNamedTypesRequest_pb2
 import esriPBuffer.graph.AddNamedTypesResponse_pb2
+import esriPBuffer.graph.AddIndexesRequest_pb2
 import knowledge_server
 import entity_mapper
 
@@ -121,12 +122,20 @@ class DataModelIndex():
         if item.upper()[0] == 'T':
             return True
         return False
-    
+
     def addField(self, row_dict):
         self.field_name.append(row_dict['FIELD_NAME'])
 
+    def transposeIndexToProtobuf(self, add_request):
+        index_item = add_request.field_indexes.add()
+        index_item.name = self.index_name
+        index_item.fields = ','.join(self.field_name)
+        index_item.isAscending = self.is_ascending
+        index_item.isUnique = self.is_unique
+        index_item.description = self.description
+
     def __repr__(self):
-        return F'{self.type_name=} {self.index_name=} {self.field_name=} {self.is_ascending=} {self.is_unique=} {self.description=}' 
+        return F'{self.type_name=} {self.index_name=} {self.field_name=} {self.is_ascending=} {self.is_unique=} {self.description=}'
 
 class DataModelIndexCollection():
     def __init__(self, index_file):

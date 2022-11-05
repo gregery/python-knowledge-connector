@@ -166,13 +166,7 @@ class KnowledgeAPI:
         #create the index add request
         type_name = data_model_index.type_name
         add_request = esriPBuffer.graph.AddIndexesRequest_pb2.GraphPropertyIndexAddsRequest()
-        for index_field in data_model_index.field_name:
-            index_item = add_request.field_indexes.add()
-            index_item.name = data_model_index.index_name
-            index_item.fields = index_field
-            index_item.isAscending = data_model_index.is_ascending
-            index_item.isUnique = data_model_index.is_unique
-            index_item.description = data_model_index.description
+        data_model_index.transposeIndexToProtobuf(add_request)
 
         #make the REST API call
         url = f"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/dataModel/edit/namedTypes/{type_name}/indexes/add"

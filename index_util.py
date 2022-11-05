@@ -24,7 +24,7 @@ if __name__ == "__main__":
                           'recreate - delete existing index types and then re-create them\n'\
                           'print - print to screen existing indexes'
 
-    parser = argparse.ArgumentParser(description='ArcGIS Knowledge Data Model Utility for Senzing')
+    parser = argparse.ArgumentParser(description='ArcGIS Knowledge Data Model Utility for Senzing', formatter_class = argparse.RawTextHelpFormatter)
     parser.add_argument('action', type=str, choices=action_choices, help=action_choices_help)
     parser.add_argument('-c', '--config', type=str, default='knowledge_config.json')
     parser.add_argument('-m', '--model', type=str, default='entity_data_model_indexes.csv')

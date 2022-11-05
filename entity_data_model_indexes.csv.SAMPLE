@@ -1,2 +1,4 @@
 ENTITY_TYPE_NAME,INDEX_NAME,FIELD_NAME,IS_ASCENDING,IS_UNIQUE,DESCRIPTION
 person_resolved_entity,entity_id_idx,entity_id,true,true,entity_id index
+person,record_id_idx,DATA_SOURCE,true,false,record_id index
+person,record_id_idx,RECORD_ID,true,false,record_id index
