@@ -3,6 +3,7 @@ import pprint
 import json
 import requests
 import gzip
+import sys
 
 import esriPBuffer.graph.QueryDataModelResponse_pb2
 import esriPBuffer.graph.AddNamedTypesRequest_pb2
@@ -16,7 +17,10 @@ import esriPBuffer.graph.DataModelTypes_pb2
 import esriPBuffer.graph.ApplyEditsRequest_pb2
 import esriPBuffer.graph.ApplyEditsResponse_pb2
 import esriPBuffer.EsriExtendedTypes.EsriExtendedTypes_pb2
+import esriPBuffer.graph.QueryRequest_pb2
 import esriPBuffer.graph.QueryResponse_pb2
+import esriPBuffer.graph.SearchQueryRequest_pb2
+import esriPBuffer.EsriTypes_pb2
 
 import data_model
 
@@ -93,6 +97,10 @@ class KnowledgeConnection:
         infoUrl = f"https://{self.getHost()}/{self.getInstance()}/rest/info"
         params = {"f": "json"}
         rdata = self.session.get(infoUrl, params=params, verify=self.getVerifySSL()).json()
+        #check for error
+        if 'status' in rdata and rdata['status'] == 'error':
+            raise(Exception(rdata['messages']))
+
         tokenUrl = rdata["authInfo"]["tokenServicesUrl"]
 
         refer_url = f"https://{self.getHost()}/{self.getInstance()}"
@@ -237,67 +245,105 @@ class KnowledgeAPI:
         read_pos = 0
         header_length, read_pos = _DecodeVarint(raw_response.content, read_pos)
 
-        # print("msg len: " + str(message_length))
-        # print("header len: " + str(header_length))
+        #print("msg len: " + str(message_length))
+        #print("header len: " + str(header_length))
         query_header = esriPBuffer.graph.QueryResponse_pb2.GraphQueryResultHeader()
-        query_header.ParseFromString(
-            raw_response.content[read_pos : header_length + read_pos]
-        )
+        query_header.ParseFromString(raw_response.content[read_pos : header_length + read_pos])
+        #print(query_header)
         # if the query returned nothing, there will be no body, so check for that
         if (header_length + read_pos) >= message_length:
             return (query_header, None)
-        # print('header: ' + str(query_header))
-        # print(query_header.error)
         frame_length, read_pos = _DecodeVarint( raw_response.content, read_pos + header_length)
+        #print(frame_length)
+        #print(read_pos)
         query_frame = esriPBuffer.graph.QueryResponse_pb2.GraphQueryResultFrame()
-        query_frame.ParseFromString( raw_response.content[read_pos : frame_length + read_pos])
+        if query_header.compressed_frames:
+            query_frame.ParseFromString(gzip.decompress(raw_response.content[read_pos : frame_length + read_pos]))
+        else:
+            query_frame.ParseFromString( raw_response.content[read_pos : frame_length + read_pos])
         return (query_header, query_frame)
 
-    def queryGraphForEntityByEntityID(self, entity_id, entity_type):
+    def queryGraph(self, query):
+        return self.queryGraphByPost(query)
+
+    def queryGraphByPost(self, cquery):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity"
         params = {
             "f": "pbf",
-            "token": self.kconn.getAuthToken(),
-            "openCypherQuery": cquery,
+            "token": self.kconn.getAuthToken()
         }
-        raw_response = self.kconn.session.get(
-            url, params=params, verify=self.kconn.getVerifySSL()
+        query_pb = esriPBuffer.graph.QueryRequest_pb2.GraphQueryRequest()
+        query_pb.open_cypher_query = cquery
+
+        raw_response = self.kconn.session.post(
+            url, 
+            params=params, 
+            headers={"Content-Type": "application/octet-stream"},
+            verify=self.kconn.getVerifySSL(),
+            data=query_pb.SerializeToString()
         )
         return self.parseGraphQueryResponse(raw_response)
 
-    def queryGraphForRelationshipsByEntityID(self, entity_id, entity_type):
+    def queryGraphByGet(self, query):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
-        cquery = F"MATCH (entity:{entity_type})-[r1]-() WHERE entity.entity_id = '{entity_id}' RETURN r1"
         params = {
             "f": "pbf",
             "token": self.kconn.getAuthToken(),
-            "openCypherQuery": cquery,
+            "openCypherQuery": query,
         }
         raw_response = self.kconn.session.get( url, params=params, verify=self.kconn.getVerifySSL())
         return self.parseGraphQueryResponse(raw_response)
 
+    def queryGraphForEntityByEntityID(self, entity_id, entity_type):
+        cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity"
+        return self.queryGraph(cquery)
+
+    def queryGraphForRelationshipsByEntityID(self, entity_id, entity_type):
+        cquery = F"MATCH (entity:{entity_type})-[r1]-() WHERE entity.entity_id = '{entity_id}' RETURN r1"
+        return self.queryGraph(cquery)
+
+    def queryGraphForEntitiesByTypeOIDOnly(self, entity_type):
+        cquery = F"MATCH (entity:{entity_type}) RETURN entity.objectid"
+        return self.queryGraph(cquery)
+
+    def queryGraphForEntitiesByTypeGIDOnly(self, entity_type, start_index):
+        cquery = F"MATCH (entity:{entity_type}) RETURN entity.globalid"
+        if start_index != 0:
+            cquery += F' SKIP {start_index}'
+        cquery += F' LIMIT 1000000'
+        return self.queryGraph(cquery)
+
     def queryGraphForEntitiesByType(self, entity_type):
-        url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
         cquery = F"MATCH (entity:{entity_type}) RETURN entity"
-        params = {
-            "f": "pbf",
-            "token": self.kconn.getAuthToken(),
-            "openCypherQuery": cquery,
-        }
-        raw_response = self.kconn.session.get(url, params=params, verify=self.kconn.getVerifySSL())
-        return self.parseGraphQueryResponse(raw_response)
+        return self.queryGraph(cquery)
 
     def queryGraphForRecord(self, data_source, record_id):
-        url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
         cquery = F"MATCH (record) WHERE record.record_id = '{record_id}' and record.data_source = '{data_source}' RETURN record"
-        params = {
-            "f": "pbf",
-            "token": self.kconn.getAuthToken(),
-            "openCypherQuery": cquery,
-        }
-        raw_response = self.kconn.session.get(url, params=params, verify=self.kconn.getVerifySSL())
+        return self.queryGraph(cquery)
+
+    def searchGraph(self, search_object):
+        url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/search"
+        params = {"f": "pbf", "token": self.kconn.getAuthToken()}
+        raw_response = self.kconn.session.post(
+            url,
+            params=params,
+            headers={"Content-Type": "application/octet-stream"},
+            data=search_object.SerializeToString(),
+            verify=self.kconn.getVerifySSL()
+        )
+        query_result = esriPBuffer.graph.QueryResponse_pb2.GraphQueryResultFrame()
         return self.parseGraphQueryResponse(raw_response)
+
+    def searchGraphForEntitiesByType(self, entity_type, max_result_size, result_index):
+        search_request = esriPBuffer.graph.SearchQueryRequest_pb2.GraphSearchRequest()
+        search_request.type_category_filter = esriPBuffer.graph.SearchQueryRequest_pb2.GraphSearchRequest.esriTypeEntity
+        filter_type = search_request.named_type_filter.extend(entity_type)
+        search_request.start_index = result_index
+        search_request.max_num_results = max_result_size
+        search_request.return_search_context = False
+        search_request.search_query = '*'
+        return self.searchGraph(search_request)
+
 
 class SenzingKnowledgeFunctions:
     def __init__(self, knowledge_api):
@@ -412,12 +458,7 @@ class SenzingKnowledgeFunctions:
             return False
 
         # extract the object id
-        oid = (
-            body.rows[0]
-            .values[0]
-            .entity_value.properties["objectid"]
-            .primitive_value.sint64_value
-        )
+        oid = body.rows[0].values[0].entity_value.properties["objectid"].primitive_value.sint64_value
         # now delete the entity
         self.deleteEntitiesByObjectID(entity_type, oid, True)
         return True
@@ -446,17 +487,35 @@ class SenzingKnowledgeFunctions:
         return self.deleteNamedTypeByObjectID( relationship_type, object_id, False, False)
 
     def deleteAllEntitiesByType(self, entity_type, cascade_delete):
-        (header, body) = self.kapi.queryGraphForEntitiesByType(entity_type)
-        # if we get no results, nothing to delete so quit
+        #setup edit protobufs
+        edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
+        edit_header.useGlobalIDs = True
+        edit_header.cascade_delete = cascade_delete
+        edit_frame = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsFrame()
+
+        #query all entities of this type
+        num_deleted = 0
+        search_index = 0
+        global_ids = []
+        (header, body) = self.kapi.queryGraphForEntitiesByTypeGIDOnly(entity_type, 0)
+        print(F"{header=}")
+        #print(F"{body=}")
+        print(len(body.rows))
+        # if we get no results, nothing more to delete so quit
         if body is None:
-            return 0
+            return num_deleted
+
         # accumulate the object ids of the entities we are deleting
-        object_ids = []
         for row in body.rows:
-            object_ids.append(row.values[0].entity_value.properties["objectid"].primitive_value.sint64_value)
+            uuid = row.values[0].primitive_value.uuid_value
+            edit_frame.deletes.deleted_entity_ids[entity_type].globalid_array += uuid
+            num_deleted += 1
+
         # delete the entities
-        self.deleteEntitiesByObjectID(entity_type, object_ids, True)
-        return len(object_ids)
+        print(F'deleting {num_deleted} entities')
+        response = self.kapi.applyGraphEdits(edit_header, edit_frame)
+        #print(response)
+        return num_deleted
 
     def deleteNamedTypeByGlobalID(self, entity_type, global_id, cascade_delete):
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()

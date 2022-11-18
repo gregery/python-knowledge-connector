@@ -1,4 +1,5 @@
 import json
+import pprint
 
 import senzing_module_config
 #make sure we can get the ini before we import the rest of the senzing python lib
@@ -9,6 +10,7 @@ from senzing import G2Engine, G2Exception, G2EngineFlags, G2Diagnostic
 class SenzingServer:
     def __init__(self, config_filename):
         self.export_handle = None
+        self.record_export_items = []
         #parse the config file
 
         with open(config_filename, mode='rt', encoding='utf-8') as config_file:
@@ -69,28 +71,24 @@ class SenzingServer:
 
     #these functions are for record export only
     def exportRecords(self):
-        headers = 'DATA_SOURCE,RECORD_ID'
-        self.export_handle = self.g2_engine.exportCSVEntityReport(headers, )
+        self.export_handle = self.g2_engine.exportJSONEntityReport(G2EngineFlags.G2_EXPORT_INCLUDE_ALL_ENTITIES | G2EngineFlags.G2_ENTITY_INCLUDE_RECORD_DATA)
 
     def getNextRecord(self):
+        if self.record_export_items:
+            return self.record_export_items.pop()
+
+        self.record_export_items = []
         response_bytearray = bytearray()
         self.g2_engine.fetchNext(self.export_handle, response_bytearray)
         if not response_bytearray:
             return None
-        val = response_bytearray.decode().strip()
-        val = val.split(',')
-        try:
-            val[0] = int(val[0])
-        except ValueError:
-            #skip the header
-            if 'DATA_SOURCE' in val[0]:
-                return self.getNextRecord()
+        response_dict = json.loads(response_bytearray)
+        for record in response_dict['RESOLVED_ENTITY']['RECORDS']:
+            self.record_export_items.append((record['DATA_SOURCE'],record['RECORD_ID']))
 
-        #remove quotes
-        val[0] = val[0].strip('"')
-        val[1] = val[1].strip('"')
-        #create the json
-        return val
+        return self.getNextRecord()
+
+
 
     def closeExportRecords(self):
         self.g2_engine.closeExport(self.export_handle)
