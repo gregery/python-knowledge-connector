@@ -318,7 +318,7 @@ class KnowledgeAPI:
         return self.queryGraph(cquery)
 
     def queryGraphForRecord(self, data_source, record_id):
-        cquery = F"MATCH (record) WHERE record.record_id = '{record_id}' and record.data_source = '{data_source}' RETURN record"
+        cquery = F"MATCH (record) WHERE record.RECORD_ID = '{record_id}' and record.DATA_SOURCE = '{data_source}' RETURN record"
         return self.queryGraph(cquery)
 
     def searchGraph(self, search_object):
