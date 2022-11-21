@@ -297,6 +297,18 @@ class KnowledgeAPI:
     def queryGraphForEntityByEntityID(self, entity_id, entity_type):
         cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity"
         return self.queryGraph(cquery)
+    
+    def queryGraphForGIDByEntityIDList(self, entity_id, entity_type):
+        in_clause = "','".join(entity_id)
+        cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id IN ['{in_clause}'] RETURN entity.globalid, entity.entity_id"
+        return self.queryGraph(cquery)
+
+
+    def queryGraphForGIDByEntityID(self, entity_id, entity_type):
+        if isinstance(entity_id, list):
+            return self.queryGraphForGIDByEntityIDList(entity_id, entity_type)
+        cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity.globalid, entity.entity_id"
+        return self.queryGraph(cquery)
 
     def queryGraphForRelationshipsByEntityID(self, entity_id, entity_type):
         cquery = F"MATCH (entity:{entity_type})-[r1]-() WHERE entity.entity_id = '{entity_id}' RETURN r1"
