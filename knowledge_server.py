@@ -264,7 +264,7 @@ class KnowledgeAPI:
         return (query_header, query_frame)
 
     def queryGraph(self, query):
-        return self.queryGraphByPost(query)
+        return self.queryGraphByGet(query)
 
     def queryGraphByPost(self, cquery):
         url = F"https://{self.kconn.getHost()}/{self.kconn.getInstance()}/rest/services/Hosted/{self.kconn.getDBName()}/KnowledgeGraphServer/graph/query"
@@ -303,9 +303,8 @@ class KnowledgeAPI:
         cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id IN ['{in_clause}'] RETURN entity.globalid, entity.entity_id"
         return self.queryGraph(cquery)
 
-
     def queryGraphForGIDByEntityID(self, entity_id, entity_type):
-        if isinstance(entity_id, list):
+        if isinstance(entity_id, (list, set)):
             return self.queryGraphForGIDByEntityIDList(entity_id, entity_type)
         cquery = F"MATCH (entity:{entity_type}) WHERE entity.entity_id = '{entity_id}' RETURN entity.globalid, entity.entity_id"
         return self.queryGraph(cquery)
@@ -318,19 +317,44 @@ class KnowledgeAPI:
         cquery = F"MATCH (entity:{entity_type}) RETURN entity.objectid"
         return self.queryGraph(cquery)
 
-    def queryGraphForEntitiesByTypeGIDOnly(self, entity_type, start_index):
+    def queryGraphForEntitiesByTypeGIDOnly(self, entity_type, start_index, limit_size):
         cquery = F"MATCH (entity:{entity_type}) RETURN entity.globalid"
         if start_index != 0:
             cquery += F' SKIP {start_index}'
-        cquery += F' LIMIT 1000000'
-        return self.queryGraph(cquery)
+        cquery += F' LIMIT {limit_size}'
+        return self.queryGraphByGet(cquery)
 
     def queryGraphForEntitiesByType(self, entity_type):
         cquery = F"MATCH (entity:{entity_type}) RETURN entity"
         return self.queryGraph(cquery)
 
+    def queryGraphForRecordBySourceRecordID(self, source_record_id):
+        #if this is a list of source_record_id, call the correct function
+        if isinstance(source_record_id, (list, set)):
+            return self.queryGraphForRecordsBySourceRecordIDList(source_record_id)
+
+        cquery = F"MATCH (record:person) WHERE record.SOURCE_RECORD_ID = '{source_record_id}' RETURN record"
+        return self.queryGraph(cquery)
+
     def queryGraphForRecord(self, data_source, record_id):
-        cquery = F"MATCH (record) WHERE record.RECORD_ID = '{record_id}' and record.DATA_SOURCE = '{data_source}' RETURN record"
+        source_record_id = F'{data_source}|{record_id}'
+        return self.queryGraphForRecordBySourceRecordID(source_record_id)
+
+    def queryGraphForRecordsBySourceRecordIDList(self, source_record_ids):
+        in_clause = "','".join(source_record_ids)
+        cquery = F"MATCH (record:person) WHERE record.SOURCE_RECORD_ID IN ['{in_clause}'] RETURN record"
+        return self.queryGraph(cquery)
+
+    def queryGraphForRecordByList(self, data_source_record_id_list):
+        #should be a list of (data_source,record_id)
+        source_record_id_list = []
+        for item in data_source_record_id_list:
+            source_record_id_list.append(F'{item[0]}|{item[1]}')
+        return self.queryGraphForRecordsBySourceRecordIDList(source_record_id_list)
+
+
+    def queryGraphForRecordGIDOnly(self, data_source, record_id):
+        cquery = F"MATCH (record) WHERE record.RECORD_ID = '{record_id}' and record.DATA_SOURCE = '{data_source}' RETURN record.globalid"
         return self.queryGraph(cquery)
 
     def searchGraph(self, search_object):
@@ -437,9 +461,8 @@ class SenzingKnowledgeFunctions:
         return self.kapi.addNamedType(add_request)
 
     def addEntityToEntityRelType(self, entity_type):
-        add_request = (
-            esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
-        )
+        add_request = esriPBuffer.graph.AddNamedTypesRequest_pb2.GraphNamedObjectTypeAddsRequest()
+
         newType = add_request.relationship_types.add()
         newType.origin_entity_types.append(entity_type)
         newType.dest_entity_types.append(entity_type)
@@ -507,25 +530,40 @@ class SenzingKnowledgeFunctions:
 
         #query all entities of this type
         num_deleted = 0
-        search_index = 0
+        queued_for_delete = 0
+        queries = 0
         global_ids = []
-        (header, body) = self.kapi.queryGraphForEntitiesByTypeGIDOnly(entity_type, 0)
-        print(F"{header=}")
-        #print(F"{body=}")
-        print(len(body.rows))
-        # if we get no results, nothing more to delete so quit
-        if body is None:
-            return num_deleted
+        while True:
+            (header, body) = self.kapi.queryGraphForEntitiesByTypeGIDOnly(entity_type, queued_for_delete, 128)
+            queries += 1
+            #print(F"{header=}")
+            #print(F"{body=}")
+            # if we get no results, nothing more to delete so quit
+            if body is None:
+                break
+            #print(len(body.rows))
 
-        # accumulate the object ids of the entities we are deleting
-        for row in body.rows:
-            uuid = row.values[0].primitive_value.uuid_value
-            edit_frame.deletes.deleted_entity_ids[entity_type].globalid_array += uuid
-            num_deleted += 1
+            # accumulate the object ids of the entities we are deleting
+            for row in body.rows:
+                uuid = row.values[0].primitive_value.uuid_value
+                edit_frame.deletes.deleted_entity_ids[entity_type].globalid_array += uuid
+                queued_for_delete += 1
+            print(F'queried {queued_for_delete}', end='\r')
+            #do an actual delete every 1024 queries
+            if queries > 1024:
+                print('')
+                print(F'deleting {queued_for_delete} entities')
+                response = self.kapi.applyGraphEdits(edit_header, edit_frame)
+                edit_frame = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsFrame()
+                queries = 0
+                num_deleted += queued_for_delete
+                queued_for_delete = 0
 
         # delete the entities
-        print(F'deleting {num_deleted} entities')
+        print('')
+        print(F'deleting {queued_for_delete} entities')
         response = self.kapi.applyGraphEdits(edit_header, edit_frame)
+        num_deleted += queued_for_delete
         #print(response)
         return num_deleted
 
@@ -620,4 +658,14 @@ class SenzingKnowledgeFunctions:
         edit_header = esriPBuffer.graph.ApplyEditsRequest_pb2.GraphApplyEditsHeader()
         edit_header.useGlobalIDs = True
         return self.kapi.applyGraphEdits(edit_header, frame)
+
+    def queryGraphForGIDByEntityID(self, entity_id, entity_type):
+        (header, items) = self.kapi.queryGraphForGIDByEntityID(entity_id, entity_type)
+        #now let's parse out the items
+        gid_associations = []
+        for row in items.rows:
+            uuid = row.values[0].primitive_value.uuid_value
+            entity_id = row.values[1].primitive_value.string_value
+            gid_associations.append((entity_id, uuid))
+        return gid_associations
 
