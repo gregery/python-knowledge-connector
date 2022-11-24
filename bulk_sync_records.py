@@ -4,7 +4,7 @@ import knowledge_finder
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Sync entities between Senzing and ArcGIS Knowledge')  
     parser.add_argument('-c', '--config', type=str, default='knowledge_config.json')
-    parser.add_argument('-s', '--size', type=int, default=10)
+    parser.add_argument('-s', '--size', type=int, default=1000)
     args = parser.parse_args()
 
     #add knowledge protobuf python lib to the pythonpath
@@ -31,20 +31,25 @@ if __name__ == "__main__":
         add_entity = edit_frame.adds.entities['person'].namedObjectAdds.add()
         add_entity.properties['data_source'].primitive_value.string_value = item[0]
         add_entity.properties['record_id'].primitive_value.string_value = item[1]
+        add_entity.properties['source_record_id'].primitive_value.string_value = item[0] + '|' + item[1]
         record_count += 1
         total_count += 1
         if record_count >= args.size:
-            print(edit_frame)
+            #print(edit_frame)
+            print(F'adding {len(edit_frame.adds.entities["person"].namedObjectAdds)}')
             add_response = szfunc.applyEditFrame(edit_frame)
+            print('response')
             print(add_response)
+            print (F'loaded {record_count}...')
             edit_frame = szfunc.getEditFrame()
             record_count = 0
-            print (F'loaded {total_count}...')
+            print (F'total loaded {total_count}...')
 
     if record_count > 0:
         szfunc.applyEditFrame(edit_frame)
         edit_frame = None
-        print (F'loaded {total_count}...')
+        print (F'loaded {record_count}...')
+        print (F'total loaded {total_count}...')
 
 
     senzing_handle.closeExportRecords()
